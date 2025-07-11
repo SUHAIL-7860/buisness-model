@@ -2,157 +2,169 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ABID IMPORT AND EXPORT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ABID IMPORT & EXPORT</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f4f4f4;
+    }
+    header {
+      background: #002244;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 24px;
+    }
+    .container {
       padding: 20px;
-      background: #f9f9f9;
     }
-    h1, h2 { color: #333; }
-    form input, form select, form button {
-      display: block;
-      margin: 8px 0;
-      padding: 10px;
+    input, select, button {
+      margin: 5px;
+      padding: 8px;
+    }
+    table {
       width: 100%;
-      max-width: 400px;
+      border-collapse: collapse;
+      margin-top: 20px;
     }
-    ul { list-style: none; padding: 0; }
-    li {
-      background: #fff;
-      margin: 10px 0;
-      padding: 10px;
-      border-left: 5px solid green;
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
     }
-    .debit { border-left-color: red; }
     .summary {
-      margin: 20px 0;
-      font-size: 18px;
-    }
-    .btn-group {
+      background: #e0e0e0;
+      padding: 10px;
       margin: 10px 0;
-    }
-    button {
-      cursor: pointer;
+      text-align: center;
     }
   </style>
 </head>
 <body>
+  <header>💼 ABID IMPORT & EXPORT</header>
 
-  <h1>💼 ABID IMPORT AND EXPORT</h1>
+  <div class="container">
+    <div class="summary" id="summary"></div>
 
-  <div class="summary">
-    <p>Total Credit: ₹<span id="totalCredit">0</span></p>
-    <p>Total Debit: ₹<span id="totalDebit">0</span></p>
-    <p><strong>Balance: ₹<span id="balance">0</span></strong></p>
-  </div>
-
-  <div class="btn-group">
-    <button onclick="exportToCSV()">⬇️ Export to Excel (CSV)</button>
-    <button onclick="clearAll()">🗑️ Clear All Transactions</button>
-  </div>
-
-  <input type="text" id="search" placeholder="🔍 Search by Vyapari Name..." />
-
-  <h2>Add Transaction</h2>
-  <form id="transactionForm">
-    <input type="text" id="name" placeholder="Vyapari Name" required />
-    <input type="number" id="amount" placeholder="Amount ₹" required />
+    <input type="text" id="name" placeholder="Vyapari Name" />
+    <input type="number" id="amount" placeholder="Amount" />
     <select id="type">
-      <option value="credit">Credit (Aaya)</option>
-      <option value="debit">Debit (Gaya)</option>
+      <option value="credit">Credit (Jama)</option>
+      <option value="debit">Debit (Udhar)</option>
     </select>
-    <input type="date" id="date" required />
+    <select id="category">
+      <option value="Material">Material</option>
+      <option value="Vyapari">Vyapari</option>
+      <option value="Karigar">Karigar</option>
+      <option value="Transport">Transport</option>
+      <option value="Electric Bill">Electric Bill</option>
+      <option value="Others">Others</option>
+    </select>
+    <input type="date" id="date" />
     <input type="text" id="note" placeholder="Note (optional)" />
-    <button type="submit">Add Transaction</button>
-  </form>
+    <button onclick="addTransaction()">➕ Add</button>
+    <button onclick="exportCSV()">📤 Export CSV</button>
+    <button onclick="clearAll()">🗑 Clear All</button>
 
-  <h2>Transactions</h2>
-  <ul id="transactionList"></ul>
+    <div>
+      <label>🔎 Filter by Date:</label>
+      <input type="date" id="startDate" /> to 
+      <input type="date" id="endDate" />
+      <button onclick="filterByDate()">🔍 Filter</button>
+    </div>
+
+    <table id="transactionTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Name</th>
+          <th>Amount</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
-    const form = document.getElementById('transactionForm');
-    const list = document.getElementById('transactionList');
-    const totalCreditEl = document.getElementById('totalCredit');
-    const totalDebitEl = document.getElementById('totalDebit');
-    const balanceEl = document.getElementById('balance');
-    const searchInput = document.getElementById('search');
+    const summaryEl = document.getElementById("summary");
+    const tableBody = document.querySelector("#transactionTable tbody");
 
     let transactions = JSON.parse(localStorage.getItem("transactions") || "[]");
+    render();
 
-    function saveTransactions() {
+    function addTransaction() {
+      const name = document.getElementById("name").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      const type = document.getElementById("type").value;
+      const category = document.getElementById("category").value;
+      const date = document.getElementById("date").value || new Date().toISOString().slice(0, 10);
+      const note = document.getElementById("note").value;
+
+      if (!name || !amount || isNaN(amount)) return alert("Please enter all required fields.");
+
+      transactions.push({ name, amount, type, category, date, note });
       localStorage.setItem("transactions", JSON.stringify(transactions));
+      render();
     }
 
-    function updateUI(filter = "") {
-      list.innerHTML = "";
+    function render(data = transactions) {
+      tableBody.innerHTML = "";
       let credit = 0, debit = 0;
+      data.forEach(t => {
+        if (t.type === "credit") credit += t.amount;
+        else debit += t.amount;
 
-      transactions.forEach((tx, index) => {
-        if (!tx.name.toLowerCase().includes(filter.toLowerCase())) return;
+        const typeLabel = t.type === "credit" ? "Credit (Jama)" : "Debit (Udhar)";
 
-        const li = document.createElement("li");
-        li.className = tx.type === "debit" ? "debit" : "";
-        li.innerHTML = `
-          <strong>${tx.date}</strong> - ${tx.name} - ₹${tx.amount} - ${tx.type.toUpperCase()}
-          <br>${tx.note || ""}
+        tableBody.innerHTML += `
+          <tr>
+            <td>${t.date}</td>
+            <td>${t.name}</td>
+            <td>₹${t.amount}</td>
+            <td>${typeLabel}</td>
+            <td>${t.category}</td>
+            <td>${t.note || "-"}</td>
+          </tr>
         `;
-        list.appendChild(li);
-
-        if (tx.type === "credit") credit += tx.amount;
-        else debit += tx.amount;
       });
-
-      totalCreditEl.textContent = credit;
-      totalDebitEl.textContent = debit;
-      balanceEl.textContent = credit - debit;
+      const balance = credit - debit;
+      summaryEl.innerHTML = `💰 Credit (Jama): ₹${credit} &nbsp;&nbsp; 💸 Debit (Udhar): ₹${debit} &nbsp;&nbsp; 🧮 Balance: ₹${balance}`;
     }
 
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
+    function clearAll() {
+      if (confirm("Are you sure you want to delete all data?")) {
+        transactions = [];
+        localStorage.removeItem("transactions");
+        render();
+      }
+    }
 
-      const tx = {
-        name: form.name.value,
-        amount: parseFloat(form.amount.value),
-        type: form.type.value,
-        date: form.date.value,
-        note: form.note.value
-      };
-
-      transactions.push(tx);
-      saveTransactions();
-      updateUI();
-      form.reset();
-    });
-
-    function exportToCSV() {
-      let csv = "Name,Amount,Type,Date,Note\n";
-      transactions.forEach(tx => {
-        csv += `${tx.name},${tx.amount},${tx.type},${tx.date},${tx.note}\n`;
-      });
-
+    function exportCSV() {
+      if (transactions.length === 0) return alert("No data to export");
+      const headers = ["Date", "Name", "Amount", "Type", "Category", "Note"];
+      const rows = transactions.map(t => [t.date, t.name, t.amount, t.type, t.category, t.note || ""]);
+      const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "abid-transactions.csv";
+      a.download = "transactions.csv";
       a.click();
+      URL.revokeObjectURL(url);
     }
 
-    function clearAll() {
-      if (confirm("Are you sure you want to delete all transactions?")) {
-        transactions = [];
-        saveTransactions();
-        updateUI();
-      }
+    function filterByDate() {
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      if (!start || !end) return alert("Select both dates");
+      const filtered = transactions.filter(t => t.date >= start && t.date <= end);
+      render(filtered);
     }
-
-    searchInput.addEventListener("input", function () {
-      updateUI(this.value);
-    });
-
-    updateUI();
   </script>
 </body>
 </html>
-
