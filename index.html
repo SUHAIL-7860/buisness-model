@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ABID IMPORT AND EXPORT</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+    h1, h2 { color: #333; }
+    form input, form select, form button {
+      display: block;
+      margin: 8px 0;
+      padding: 10px;
+      width: 100%;
+      max-width: 400px;
+    }
+    ul { list-style: none; padding: 0; }
+    li {
+      background: #fff;
+      margin: 10px 0;
+      padding: 10px;
+      border-left: 5px solid green;
+    }
+    .debit { border-left-color: red; }
+    .summary {
+      margin: 20px 0;
+      font-size: 18px;
+    }
+    .btn-group {
+      margin: 10px 0;
+    }
+    button {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>💼 ABID IMPORT AND EXPORT</h1>
+
+  <div class="summary">
+    <p>Total Credit: ₹<span id="totalCredit">0</span></p>
+    <p>Total Debit: ₹<span id="totalDebit">0</span></p>
+    <p><strong>Balance: ₹<span id="balance">0</span></strong></p>
+  </div>
+
+  <div class="btn-group">
+    <button onclick="exportToCSV()">⬇️ Export to Excel (CSV)</button>
+    <button onclick="clearAll()">🗑️ Clear All Transactions</button>
+  </div>
+
+  <input type="text" id="search" placeholder="🔍 Search by Vyapari Name..." />
+
+  <h2>Add Transaction</h2>
+  <form id="transactionForm">
+    <input type="text" id="name" placeholder="Vyapari Name" required />
+    <input type="number" id="amount" placeholder="Amount ₹" required />
+    <select id="type">
+      <option value="credit">Credit (Aaya)</option>
+      <option value="debit">Debit (Gaya)</option>
+    </select>
+    <input type="date" id="date" required />
+    <input type="text" id="note" placeholder="Note (optional)" />
+    <button type="submit">Add Transaction</button>
+  </form>
+
+  <h2>Transactions</h2>
+  <ul id="transactionList"></ul>
+
+  <script>
+    const form = document.getElementById('transactionForm');
+    const list = document.getElementById('transactionList');
+    const totalCreditEl = document.getElementById('totalCredit');
+    const totalDebitEl = document.getElementById('totalDebit');
+    const balanceEl = document.getElementById('balance');
+    const searchInput = document.getElementById('search');
+
+    let transactions = JSON.parse(localStorage.getItem("transactions") || "[]");
+
+    function saveTransactions() {
+      localStorage.setItem("transactions", JSON.stringify(transactions));
+    }
+
+    function updateUI(filter = "") {
+      list.innerHTML = "";
+      let credit = 0, debit = 0;
+
+      transactions.forEach((tx, index) => {
+        if (!tx.name.toLowerCase().includes(filter.toLowerCase())) return;
+
+        const li = document.createElement("li");
+        li.className = tx.type === "debit" ? "debit" : "";
+        li.innerHTML = `
+          <strong>${tx.date}</strong> - ${tx.name} - ₹${tx.amount} - ${tx.type.toUpperCase()}
+          <br>${tx.note || ""}
+        `;
+        list.appendChild(li);
+
+        if (tx.type === "credit") credit += tx.amount;
+        else debit += tx.amount;
+      });
+
+      totalCreditEl.textContent = credit;
+      totalDebitEl.textContent = debit;
+      balanceEl.textContent = credit - debit;
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const tx = {
+        name: form.name.value,
+        amount: parseFloat(form.amount.value),
+        type: form.type.value,
+        date: form.date.value,
+        note: form.note.value
+      };
+
+      transactions.push(tx);
+      saveTransactions();
+      updateUI();
+      form.reset();
+    });
+
+    function exportToCSV() {
+      let csv = "Name,Amount,Type,Date,Note\n";
+      transactions.forEach(tx => {
+        csv += `${tx.name},${tx.amount},${tx.type},${tx.date},${tx.note}\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "abid-transactions.csv";
+      a.click();
+    }
+
+    function clearAll() {
+      if (confirm("Are you sure you want to delete all transactions?")) {
+        transactions = [];
+        saveTransactions();
+        updateUI();
+      }
+    }
+
+    searchInput.addEventListener("input", function () {
+      updateUI(this.value);
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
+
